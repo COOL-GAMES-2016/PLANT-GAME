@@ -546,3 +546,553 @@ init();
 
 </body>
 </html>
+
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Juego de Plantas Nivel 5</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: #e7ffe7;
+}
+
+.box {
+  margin: 10px auto;
+  padding: 10px;
+  width: 520px;
+  max-width: 92vw;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.slot {
+  min-height: 92px;
+  border: 2px dashed #aaa;
+  font-size: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 10px;
+  background: #fbfffb;
+  padding: 4px;
+}
+
+.slot small {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.ready {
+  border: 3px solid #1f9d45;
+  background: #eaffea;
+}
+
+.sold {
+  border: 3px solid #d4af37;
+  background: #fff8d8;
+}
+
+.playerSlot {
+  box-shadow: inset 0 0 0 4px #59c36a;
+}
+
+button {
+  margin: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #999;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.selected {
+  border: 3px solid #1f9d45;
+  background: #eaffea;
+}
+
+.locked {
+  color: #777;
+  font-size: 14px;
+  margin: 6px 0;
+}
+
+#player {
+  font-size: 40px;
+  transition: all 0.3s;
+}
+
+#message {
+  min-height: 22px;
+  font-weight: bold;
+  color: #176d2b;
+}
+
+#selectedSeed {
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌱 Juego Nivel 5</h1>
+
+<div class="box">
+  <h2>💰 Dinero: <span id="money">10</span> €</h2>
+  <p id="mission">🎯 Misión: Planta tu primera semilla</p>
+  <p id="message">Elige una semilla y planta en el jardín.</p>
+  <p id="goals"></p>
+</div>
+
+<div class="box">
+  <h3>🛒 Tienda</h3>
+  <div id="shop"></div>
+  <hr>
+  <button id="expandBtn" onclick="expandGarden()" style="display:none;">🧱 Ampliar jardín +3 casillas (120€)</button>
+</div>
+
+<div class="box">
+  <h3>🎒 Inventario</h3>
+  <p>Semilla seleccionada: <span id="selectedSeed">ninguna</span></p>
+  <div id="inv"></div>
+</div>
+
+<div class="box">
+  <h3>🧑 Jugador</h3>
+  <div id="player">🙂</div>
+  <button onclick="move(-1)">⬅️</button>
+  <button onclick="move(1)">➡️</button>
+  <p>Posición: <span id="pos">4</span></p>
+</div>
+
+<div class="box">
+  <h3>🌱 Jardín</h3>
+  <p><small>Haz clic en una casilla vacía para plantar. Después haz clic para cuidar la planta. Cuando salga “LISTO PARA VENDER”, haz clic otra vez para venderla.</small></p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+
+let money = 10;
+
+const seedTypes = {
+  flor: {
+    name: "Flor",
+    seedEmoji: "🌸",
+    price: 5,
+    sell: 10,
+    unlockAt: 0,
+    stages: ["🌱", "🌿", "💧🌿", "🌸"]
+  },
+  arbol: {
+    name: "Árbol",
+    seedEmoji: "🌳",
+    price: 10,
+    sell: 20,
+    unlockAt: 0,
+    stages: ["🌱", "🌿", "🌲", "🌳"]
+  },
+  oro: {
+    name: "Semilla dorada",
+    seedEmoji: "✨",
+    price: 20,
+    sell: 50,
+    unlockAt: 0,
+    stages: ["🌱", "✨🌿", "✨💧", "🌟"]
+  },
+  fresa: {
+    name: "Fresa",
+    seedEmoji: "🍓",
+    price: 25,
+    sell: 60,
+    unlockAt: 180,
+    stages: ["🌱", "🌿", "🌼", "🍓"]
+  },
+  manzana: {
+    name: "Manzana",
+    seedEmoji: "🍎",
+    price: 35,
+    sell: 80,
+    unlockAt: 200,
+    stages: ["🌱", "🌿", "🌳", "🍎"]
+  },
+  limon: {
+    name: "Limón",
+    seedEmoji: "🍋",
+    price: 40,
+    sell: 90,
+    unlockAt: 200,
+    stages: ["🌱", "🌿", "🌳", "🍋"]
+  },
+  uva: {
+    name: "Uva",
+    seedEmoji: "🍇",
+    price: 45,
+    sell: 100,
+    unlockAt: 200,
+    stages: ["🌱", "🌿", "🍃", "🍇"]
+  }
+};
+
+let inventory = {
+  flor: 0,
+  arbol: 0,
+  oro: 0,
+  fresa: 0,
+  manzana: 0,
+  limon: 0,
+  uva: 0
+};
+
+let unlockedSeeds = {
+  flor: true,
+  arbol: true,
+  oro: true,
+  fresa: false,
+  manzana: false,
+  limon: false,
+  uva: false
+};
+
+let seedSelected = null;
+let playerPos = 4;
+let garden = Array(9).fill(null);
+let missionDone = false;
+let gardenExpansionUnlocked = false;
+let lastMessage = "Elige una semilla y planta en el jardín.";
+
+function init() {
+  render();
+}
+
+function checkUnlocks() {
+  let messages = [];
+
+  if (!gardenExpansionUnlocked && money >= 120) {
+    gardenExpansionUnlocked = true;
+    messages.push("🔓 ¡Puedes ampliar el jardín con 3 casillas nuevas!");
+  }
+
+  Object.keys(seedTypes).forEach(type => {
+    if (!unlockedSeeds[type] && money >= seedTypes[type].unlockAt) {
+      unlockedSeeds[type] = true;
+      messages.push(`🔓 ¡Nueva semilla desbloqueada: ${seedTypes[type].seedEmoji} ${seedTypes[type].name}!`);
+    }
+  });
+
+  return messages.length > 0 ? " " + messages.join(" ") : "";
+}
+
+function buy(type) {
+  const seed = seedTypes[type];
+
+  if (!unlockedSeeds[type]) {
+    lastMessage = `🔒 Todavía no has desbloqueado ${seed.name}.`;
+    render();
+    return;
+  }
+
+  if (money < seed.price) {
+    lastMessage = `Necesitas ${seed.price}€ para comprar ${seed.name}.`;
+    render();
+    return;
+  }
+
+  money -= seed.price;
+  inventory[type]++;
+
+  lastMessage = `Has comprado 1 semilla de ${seed.seedEmoji} ${seed.name} por ${seed.price}€.`;
+  render();
+}
+
+function selectSeed(type) {
+  if (inventory[type] <= 0) {
+    lastMessage = `No tienes semillas de ${seedTypes[type].name}.`;
+    render();
+    return;
+  }
+
+  seedSelected = type;
+  lastMessage = `Semilla seleccionada: ${seedTypes[type].seedEmoji} ${seedTypes[type].name}.`;
+  render();
+}
+
+function firstAvailableSeed() {
+  return Object.keys(inventory).find(type => unlockedSeeds[type] && inventory[type] > 0);
+}
+
+function move(dir) {
+  playerPos += dir;
+
+  if (playerPos < 0) playerPos = 0;
+  if (playerPos > garden.length - 1) playerPos = garden.length - 1;
+
+  render();
+}
+
+function plant(i) {
+  let type = seedSelected;
+
+  if (!type || inventory[type] <= 0) {
+    type = firstAvailableSeed();
+
+    if (!type) {
+      lastMessage = "No tienes semillas. Compra una en la tienda.";
+      render();
+      return;
+    }
+
+    seedSelected = type;
+  }
+
+  if (garden[i]) return;
+
+  inventory[type]--;
+
+  garden[i] = {
+    type: type,
+    stage: 0
+  };
+
+  lastMessage = `Has plantado ${seedTypes[type].seedEmoji} ${seedTypes[type].name}. Ahora cuídala para que crezca.`;
+
+  if (inventory[type] <= 0) {
+    seedSelected = null;
+  }
+
+  checkMission();
+  render();
+}
+
+function grow(i) {
+  let p = garden[i];
+
+  if (!p) {
+    plant(i);
+    return;
+  }
+
+  if (p.status === "sold") return;
+
+  if (p.stage < 3) {
+    p.stage++;
+
+    if (p.stage === 3) {
+      lastMessage = `✅ ${seedTypes[p.type].seedEmoji} ${seedTypes[p.type].name} está LISTA PARA VENDER. Haz clic en esa casilla para cobrar ${seedTypes[p.type].sell}€.`;
+    } else {
+      lastMessage = `Has cuidado ${seedTypes[p.type].name}. Sigue haciendo clic para que crezca.`;
+    }
+
+    render();
+    return;
+  }
+
+  sellPlant(i);
+}
+
+function sellPlant(i) {
+  const p = garden[i];
+  const seed = seedTypes[p.type];
+  const amount = seed.sell;
+
+  money += amount;
+  const unlockMessage = checkUnlocks();
+
+  garden[i] = {
+    status: "sold",
+    amount: amount,
+    name: seed.name,
+    emoji: seed.seedEmoji
+  };
+
+  lastMessage = `💰 Has vendido ${seed.emoji || seed.seedEmoji} ${seed.name} por ${amount}€. Tu dinero ahora es ${money}€.` + unlockMessage;
+
+  render();
+
+  setTimeout(() => {
+    if (garden[i] && garden[i].status === "sold") {
+      garden[i] = null;
+      render();
+    }
+  }, 1200);
+}
+
+function expandGarden() {
+  if (!gardenExpansionUnlocked) {
+    lastMessage = "Necesitas llegar a 120€ para desbloquear la ampliación del jardín.";
+    render();
+    return;
+  }
+
+  if (money < 120) {
+    lastMessage = "La ampliación cuesta 120€. Vende más plantas para ahorrar.";
+    render();
+    return;
+  }
+
+  money -= 120;
+  garden.push(null, null, null);
+
+  lastMessage = `🧱 Has ampliado el jardín. Ahora tienes ${garden.length} casillas.`;
+
+  render();
+}
+
+function checkMission() {
+  if (!missionDone) {
+    missionDone = true;
+    money += 5;
+
+    document.getElementById("mission").innerText =
+      "🎯 Misión completada: ¡Sigue cultivando!";
+
+    lastMessage += " 🎁 Misión completada: ganas 5€ extra." + checkUnlocks();
+  }
+}
+
+function renderShop() {
+  const shop = document.getElementById("shop");
+  shop.innerHTML = "";
+
+  Object.keys(seedTypes).forEach(type => {
+    const seed = seedTypes[type];
+
+    if (unlockedSeeds[type]) {
+      const btn = document.createElement("button");
+      btn.innerText = `${seed.seedEmoji} ${seed.name} (${seed.price}€)`;
+      btn.disabled = money < seed.price;
+      btn.onclick = () => buy(type);
+      shop.appendChild(btn);
+    } else {
+      const p = document.createElement("p");
+      p.className = "locked";
+      p.innerText = `🔒 ${seed.seedEmoji} ${seed.name}: se desbloquea al tener ${seed.unlockAt}€`;
+      shop.appendChild(p);
+    }
+  });
+
+  const expandBtn = document.getElementById("expandBtn");
+  expandBtn.style.display = gardenExpansionUnlocked ? "inline-block" : "none";
+  expandBtn.disabled = money < 120;
+}
+
+function renderInventory() {
+  const inv = document.getElementById("inv");
+  inv.innerHTML = "";
+
+  Object.keys(seedTypes).forEach(type => {
+    if (!unlockedSeeds[type]) return;
+
+    const seed = seedTypes[type];
+    const btn = document.createElement("button");
+
+    btn.innerText = `${seed.seedEmoji} ${inventory[type]}`;
+    btn.disabled = inventory[type] <= 0;
+    btn.onclick = () => selectSeed(type);
+
+    if (seedSelected === type) {
+      btn.className = "selected";
+    }
+
+    inv.appendChild(btn);
+  });
+
+  document.getElementById("selectedSeed").innerText =
+    seedSelected ? `${seedTypes[seedSelected].seedEmoji} ${seedTypes[seedSelected].name}` : "ninguna";
+}
+
+function renderGoals() {
+  let goalText = "";
+
+  if (!gardenExpansionUnlocked) {
+    goalText += "🧱 Próximo objetivo: llega a 120€ para desbloquear la ampliación del jardín. ";
+  }
+
+  if (!unlockedSeeds.fresa) {
+    goalText += "🍓 Llega a 180€ para desbloquear fresas. ";
+  }
+
+  if (!unlockedSeeds.manzana || !unlockedSeeds.limon || !unlockedSeeds.uva) {
+    goalText += "🍎🍋🍇 Llega a 200€ para desbloquear más frutas.";
+  }
+
+  if (goalText === "") {
+    goalText = "🏆 ¡Has desbloqueado todas las mejoras principales!";
+  }
+
+  document.getElementById("goals").innerText = goalText;
+}
+
+function renderGarden() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  garden.forEach((p, i) => {
+    const div = document.createElement("div");
+    div.className = "slot";
+
+    if (i === playerPos) {
+      div.classList.add("playerSlot");
+    }
+
+    if (!p) {
+      div.innerHTML = `<div>⬜</div><small>Vacío<br>clic para plantar</small>`;
+    } else if (p.status === "sold") {
+      div.classList.add("sold");
+      div.innerHTML = `<div>✅</div><small>Vendido<br>+${p.amount}€</small>`;
+    } else {
+      const seed = seedTypes[p.type];
+      const emoji = seed.stages[p.stage];
+
+      if (p.stage === 3) {
+        div.classList.add("ready");
+        div.innerHTML = `<div>${emoji}</div><small>LISTO PARA VENDER<br>+${seed.sell}€</small>`;
+      } else {
+        div.innerHTML = `<div>${emoji}</div><small>${seed.name}<br>clic para cuidar</small>`;
+      }
+    }
+
+    div.onclick = () => grow(i);
+    grid.appendChild(div);
+  });
+}
+
+function render() {
+  checkUnlocks();
+
+  document.getElementById("money").innerText = money;
+  document.getElementById("pos").innerText = playerPos;
+  document.getElementById("mission").innerText =
+    missionDone ? "🎯 Misión completada: ¡Sigue cultivando!" : "🎯 Misión: Planta tu primera semilla";
+  document.getElementById("message").innerText = lastMessage;
+
+  renderShop();
+  renderInventory();
+  renderGoals();
+  renderGarden();
+}
+
+init();
+
+</script>
+
+</body>
+</html>
