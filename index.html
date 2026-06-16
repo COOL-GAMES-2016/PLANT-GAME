@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Juego de Plantas Nivel 4</title>
+
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  background: #e7ffe7;
+}
+
+.box {
+  margin: 10px auto;
+  padding: 10px;
+  width: 480px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.slot {
+  height: 80px;
+  border: 2px dashed #aaa;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+button {
+  margin: 4px;
+  padding: 8px;
+}
+
+#player {
+  font-size: 40px;
+  transition: all 0.3s;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌱 Juego Nivel 4</h1>
+
+<div class="box">
+  <h2>💰 Dinero: <span id="money">10</span> €</h2>
+  <p id="mission">🎯 Misión: Planta tu primera semilla</p>
+</div>
+
+<div class="box">
+  <h3>🛒 Tienda</h3>
+  <button onclick="buy('flor')">🌸 Flor (5€)</button>
+  <button onclick="buy('arbol')">🌳 Árbol (10€)</button>
+  <button onclick="buy('oro')">✨ Semilla dorada (20€)</button>
+</div>
+
+<div class="box">
+  <h3>🎒 Inventario</h3>
+  <p id="inv"></p>
+</div>
+
+<div class="box">
+  <h3>🧑 Jugador</h3>
+  <div id="player">🙂</div>
+  <button onclick="move(-1)">⬅️</button>
+  <button onclick="move(1)">➡️</button>
+  <p>Posición: <span id="pos">0</span></p>
+</div>
+
+<div class="box">
+  <h3>🌱 Jardín</h3>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+
+let money = 10;
+
+let inventory = {
+  flor: 0,
+  arbol: 0,
+  oro: 0
+};
+
+let seedSelected = null;
+
+let playerPos = 4;
+
+let garden = Array(9).fill(null);
+
+let missionDone = false;
+
+function init() {
+  render();
+}
+
+function buy(type) {
+  let price = type === "flor" ? 5 : type === "arbol" ? 10 : 20;
+
+  if (money < price) return alert("No tienes dinero");
+
+  money -= price;
+  inventory[type]++;
+
+  render();
+}
+
+function move(dir) {
+  playerPos += dir;
+  if (playerPos < 0) playerPos = 0;
+  if (playerPos > 8) playerPos = 8;
+
+  document.getElementById("player").innerText = "🙂";
+  document.getElementById("pos").innerText = playerPos;
+}
+
+function plant(i) {
+  // seleccionar semilla automáticamente
+  if (!seedSelected) {
+    if (inventory.flor > 0) seedSelected = "flor";
+    else if (inventory.arbol > 0) seedSelected = "arbol";
+    else if (inventory.oro > 0) seedSelected = "oro";
+    else return alert("No tienes semillas");
+  }
+
+  if (inventory[seedSelected] <= 0) return alert("No tienes esa semilla");
+
+  inventory[seedSelected]--;
+
+  if (!garden[i]) {
+    garden[i] = {
+      type: seedSelected,
+      stage: 0,
+      emoji: "🌱"
+    };
+  }
+
+  seedSelected = null;
+
+  checkMission();
+  render();
+}
+
+function grow(i) {
+  let p = garden[i];
+  if (!p) return plant(i);
+
+  if (p.stage === 0) {
+    p.stage = 1;
+    p.emoji = "🌿";
+  }
+  else if (p.stage === 1) {
+    p.stage = 2;
+    p.emoji = "💧🌿";
+  }
+  else if (p.stage === 2) {
+    p.stage = 3;
+    p.emoji = p.type === "arbol" ? "🌳" : "🌸";
+  }
+  else if (p.stage === 3) {
+    harvest(i);
+  }
+
+  render();
+}
+
+function harvest(i) {
+  let p = garden[i];
+
+  if (p.type === "flor") money += 10;
+  if (p.type === "arbol") money += 20;
+  if (p.type === "oro") money += 50;
+
+  garden[i] = null;
+
+  render();
+}
+
+function checkMission() {
+  if (!missionDone) {
+    missionDone = true;
+    document.getElementById("mission").innerText =
+      "🎯 Misión completada: ¡Sigue cultivando!";
+    money += 5;
+  }
+}
+
+function render() {
+  document.getElementById("money").innerText = money;
+
+  document.getElementById("inv").innerText =
+    `🌸 ${inventory.flor} | 🌳 ${inventory.arbol} | ✨ ${inventory.oro}`;
+
+  let grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  garden.forEach((p, i) => {
+    let div = document.createElement("div");
+    div.className = "slot";
+    div.innerText = p ? p.emoji : "⬜";
+
+    // el jugador puede interactuar con su posición
+    if (i === playerPos) {
+      div.style.border = "2px solid green";
+    }
+
+    div.onclick = () => grow(i);
+
+    grid.appendChild(div);
+  });
+}
+
+init();
+
+</script>
+
+</body>
+</html>
